@@ -1,0 +1,39 @@
+
+*Create vertical table
+
+collect clear
+
+unab vlist : D1 agecat education occ
+
+* build the overall sample table
+table () (netuse,test), ///
+    stat(frequency) ///
+    stat(percent, across(netuse)) ///
+    name(N)
+collect addtags N[_hide]
+collect layout (N) (netuse#result)
+
+* loop over the factor variables to compute their "row" percentages
+* across the levels of -rural-
+foreach v of local vlist {
+    table (`v') (netuse), ///
+        stat(frequency) ///
+        stat(percent, across(netuse)) ///
+        totals(`v') ///
+        name(`v')
+}
+
+* create a new collection named 'all' that combines the above collections
+collect combine all = N `vlist'
+
+* define a composite result like -dtable- does
+collect composite define stats = frequency percent
+
+* add formats for the percent like -dtable- does
+collect style cell result[percent], nformat("%6.2f") sformat("(%s%%)")
+
+* hide the title and level labels in the header for our composite result
+collect style header result[stats], title(hide) level(hide)
+
+* new layout putting all the factor variables in the rows
+collect layout (N `vlist') (netuse#result[stats])
