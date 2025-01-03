@@ -1,0 +1,21 @@
+
+collapse (count) CaseID,by(agecat sex)
+
+reshape wide CaseID,i(agecat) j(sex)
+
+rename CaseID1 negmales
+rename CaseID2 females
+
+replace negmales=negmales*-1
+
+gen males = abs(negmales)
+
+
+twoway bar negmales age, horizontal col(navy) || ///
+       bar females age, horizontal col(maroon) || ///
+       scatter age negmales, m(i) mc(navy) mlab(males) mlabp(9) || ///
+       scatter age females, m(i) mc(maroon) mlab(females) mlabp(3) ///
+       ylab(1(1)15, val angle(horizontal) noticks) ytitle("Age groups") xtitle("Number of household members") ///
+       xlab(-1200 "1200" -600 "600" 0 600 1200) ///
+       leg(order(1 "Males" 2 "Females") position(6) rows(1) )
+
