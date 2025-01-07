@@ -1,0 +1,1258 @@
+
+
+clear
+
+set more off
+
+cd "/Users/levira/Documents/Projects/TMSA/Research/MSDQI Impact/xtempfile"
+
+
+*Annua active facilities 2017-2022
+
+import delimited "/Users/levira/Documents/Projects/TMSA/Research/MSDQI Impact/data/Annual OPD data.csv", delimiter("") varnames(1) clear
+
+sort facilityid
+
+drop if facilityid==""
+
+rename region Region
+rename council District
+
+generate facilitytype = regexm(facilityname, "Dispensary")
+replace facilitytype = 1 if regexm(facilityname, "Dispesnasry")==1 & facilitytype==0
+replace facilitytype = 2 if regexm(facilityname, "Health Center")==1 & facilitytype==0
+replace facilitytype = 3 if regexm(facilityname, "District Hospital")==1 & facilitytype==0
+replace facilitytype = 4 if regexm(facilityname, "Referral Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Other Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Hospital at District Level")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "HOSPITAL")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "Clinic")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "clinic")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "Polyclinic")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "Maternity Home")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "MATERNITY HOME")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "Nursing Home")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Health Labs")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Laboratory")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Diagnostic")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Specimen collection point")==1 & facilitytype==0
+
+tab facilitytype
+
+recode facilitytype (1=1 "Dispensary") (2=2 "Health Center") (3/5=3 "Hospital")  (6=4 "Poly/Clinics") (7=5 "Maternity home") (8=6 "Diagnostics/Lab"),gen(facilitytype1)
+
+tab facilitytype1,miss
+tab facilitytype1,nolab
+
+*keep if (facilitytype1==2 | facilitytype1==3)
+
+
+replace opdreturn=0 if opdreturn==.
+replace opdfirst=0 if opdfirst==.
+
+gen opdtotal=opdreturn+opdfirst
+
+drop if opdtotal==0
+
+tab year
+
+bysort facilityid: gen totalrep=_N
+
+tab totalrep
+
+egen dstat1 = group(facilityid)
+
+tab facilitytype1
+
+summ dstat1 //Facilities reported OPD
+
+keep if (facilitytype1==2 | facilitytype1==3)
+
+egen dstat2 = group(facilityid)
+
+summ dstat2 //Health centers and Dispensaries reported OPD
+
+
+drop opdfirst opdreturn facilitytype facilitytype1
+
+sort Region District year facilityid 
+
+bysort Region District year: egen disopd=sum(opdtotal)
+
+gen prop=opdtotal/disopd
+
+duplicates list Region District year facilityid
+
+keep if totalrep==6
+
+egen dstat3 = group(facilityid)
+
+summ dstat3 //Health centers and Dispensaries reported OPD consistently over 6 years
+
+tostring year,replace
+
+drop opdtotal disopd totalrep
+
+save facilityregdhs,replace
+
+tabstat prop if year=="2022", stats(sum) by(District)
+
+
+
+*Import district population
+
+
+import excel "/Users/levira/Documents/Projects/TMSA/Research/MSDQI Impact/data/Populationu5.xls", sheet("Sheet 1") firstrow clear
+
+rename region Region
+rename district District
+
+save districtpopulation,replace
+
+
+/*
+
+
+*OPD visits under-five
+
+*Import
+
+forvalues i=2017/2022 {
+clear
+import excel "/Users/levira/Documents/Projects/TMSA/Research/MSDQI Impact/data/u5opdvisit`i'.xls", sheet("Sheet 1") firstrow
+drop if u5opd==.
+save opd`i',replace
+}
+
+use opd2017
+forvalues i=2018/2022 {
+append using opd`i'
+save opdpooled,replace
+}
+
+rename facility facilityname
+
+generate facilitytype = regexm(facilityname, "Dispensary")
+replace facilitytype = 1 if regexm(facilityname, "Dispesnasry")==1 & facilitytype==0
+replace facilitytype = 2 if regexm(facilityname, "Health Center")==1 & facilitytype==0
+replace facilitytype = 3 if regexm(facilityname, "District Hospital")==1 & facilitytype==0
+replace facilitytype = 4 if regexm(facilityname, "Referral Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Other Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Hospital at District Level")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "HOSPITAL")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "Clinic")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "clinic")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "Polyclinic")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "Maternity Home")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "MATERNITY HOME")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "Nursing Home")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Health Labs")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Laboratory")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Diagnostic")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Specimen collection point")==1 & facilitytype==0
+
+
+recode facilitytype (1=1 "Dispensary") (2=2 "Health Center") (3/5=3 "Hospital")  (6=4 "Poly/Clinics") (7=5 "Maternity home") (8=6 "Diagnostics/Lab"),gen(facilitytype1)
+
+tab facilitytype1,miss
+
+keep if (facilitytype1==2 | facilitytype1==3)
+
+tab facilitytype1
+
+drop facilitytype*
+
+bysort year district: egen annualopd=sum(u5opd)
+
+gen prop=u5opd/annualopd
+
+rename region Region
+rename district District
+
+merge m:1 Region District year using districtpopulation
+
+drop _m
+
+gen catchment=int(prop*populationu5)
+
+duplicates report Region District year facilityname
+
+duplicates list Region District year facilityname
+
+duplicates drop Region District year facilityname,force
+
+drop prop populationu5 annualopd u5opd
+
+*merge 1:1 Region District year facilityname using facilityregdhs
+
+*drop _m
+
+save populationdata,replace
+
+*/
+
+
+
+
+**Malaria stratification
+
+import excel "/Users/levira/Documents\Projects\TMSA\Technical & Documents\Common datasets\Malaria Stratification Tanzania mainland.xlsx", sheet("More Details") firstrow clear
+
+rename D burden2018
+rename E burden2020
+
+drop G H I J
+
+replace Council="Kigoma Municipal Council"  if Council=="Kigoma Municipal Council"
+replace Council="Mlimba District Council"  if Council=="Kilombero District Council"
+replace Council="Tanganyika District Council"  if Council=="Mpanda District Council"
+replace Council="Mtama District Council"  if Council=="Lindi District Council"
+
+rename Council District
+
+save "/Users/levira/Documents\Projects\TMSA\Technical & Documents\Common datasets\Malaria Stratification Tanzania mainland.dta",replace
+
+clear
+
+
+*Import checklist
+
+
+import excel "/Users/levira/Documents/Projects/TMSA/MSDQI/MSDQI/PMI-20.11.22 Indepth Analysis - CSV/Data Elements/OPD Site Readiness-Data Readiness Data Elements 18.11.2022 3.xlsx", sheet("Sheet 1") firstrow clear
+
+
+*drop in 1/1
+*drop in 1/1
+
+label variable v1 "Event"
+label variable v2	"Program stage"
+label variable v3	"Supervision date"
+label variable v4	"Geometry"
+label variable v5	"Longitude"
+label variable v6	"Latitude"
+label variable v7	"Organisation unit name"
+label variable v8	"Organisation unit code"
+label variable v9	"Organisation unit"
+label variable v10	"MSDQI_OPD_C_Is this facility a dispensary?"
+label variable v11	"MSDQI_OPD_C_ Is there at least one (1) Clinical Officer/Assistant available in this OPD?"
+label variable v12	"OPD_C_ Is there at least one (1) Clinical Officer/Assistant available in this OPD?"
+label variable v13	"MSDQI_OPD_C_Is there at least one (1) Nurse available in this OPD?"
+label variable v14	"OPD_C_Is this facility a health center or hospital?"
+label variable v15	"MSDQI_OPD_C_Is there at least one (1) Medical Doctor available in this OPD?"
+label variable v16	"MSDQI_OPD_C_Is there at least one (1) Assistant Medical Officer available in this OPD?"
+label variable v17	"MSDQI_OPD_C_Are there at least two (2) Clinical Officers available in this OPD?"
+label variable v18	"MSDQI_OPD_C_Is there at least one (1) Assistant Nursing Officer available in this OPD?"
+label variable v19	"OPD_C_Is there at least one (1) Nurse available in this OPD for HC/H?"
+label variable v20	"MSDQI_OPD_C_Is there at least one (1) Medical Attendant available in this OPD?"
+label variable v21	"MSDQI_OPD_C_How many total clinical staff are at this OPD?"
+label variable v22	"MSDQI_OPD_C_How many clinical staff received formal (e.g seminar) malaria case management training including artesunate injectable prescription?"
+label variable v23	"MSDQI_OPD_C_How many clinical staff received on-job (e.g mentorship) malaria case management training including artesunate injectable? (verify record of the training)"
+label variable v24	"MSDQI_OPD_C_2014 Malaria Diagnosis and Treatment Guideline"
+label variable v25	"MSDQI_OPD_C_2014-15 Training manual"
+label variable v26	"MSDQI_OPD_C_2016 IMCI Chart booklet"
+label variable v27	"MSDQI_OPD_C_Fever case management algorithm poster"
+label variable v28	"MSDQI_OPD_C_Artesunate injection job aid/SOP"
+label variable v29	"MSDQI_OPD_C_Thermometer"
+label variable v30	"MSDQI_OPD_C_Timing device (e.g. ARI timer)"
+label variable v31	"MSDQI_OPD_C_Stethoscope"
+label variable v32	"MSDQI_OPD_C_BP machine"
+label variable v33	"MSDQI_OPD_C_Weighing scale"
+label variable v34	"MSDQI_OPD_C_Height/ length board"
+label variable v35	"MSDQI Available Matumizi ya SP kama kinga tiba"
+label variable v36	"MSDQI Available Matumizi ya dawa mseto"
+label variable v37	"MSDQI Available Pima kabla ya matibabu"
+label variable v38	"MSDQI Available Matumizi ya Chandarua"
+label variable v39	"MSDQI displayed Matumizi ya SP kama kinga tiba"
+label variable v40	"MSDQI displayed Matumizi ya dawa mseto"
+label variable v41	"MSDQI displayed Pima kabla ya matibabu"
+label variable v42	"MSDQI displayed Matumizi ya Chandarua"
+label variable v43	"MSDQI_OPD_D_OB1_Age of patient"
+label variable v44	"MSDQI_OPD_D_OB2_Age of patient"
+label variable v45	"MSDQI_OPD_D_OB1_Fever"
+label variable v46	"MSDQI_OPD_D_OB2_Fever"
+label variable v47	"MSDQI_OPD_D_OB1_Duration of fever (Answer no if clinician did not ask about fever)"
+label variable v48	"MSDQI_OPD_D_OB2_Duration of fever (Answer no if clinician did not ask about fever)"
+label variable v49	"MSDQI_OPD_D_OB1_Diarrhea"
+label variable v50	"MSDQI_OPD_D_OB2_Diarrhea"
+label variable v51	"MSDQI_OPD_D_OB1_Asked if diarrhea was bloody (N/A if patient does not have diarrhea) (No if clinician did not ask about diarrhea)"
+label variable v52	"MSDQI_OPD_D_OB2_Asked if diarrhea was bloody (N/A if patient does not have diarrhea) (No if clinician did not ask about diarrhea)"
+label variable v53	"MSDQI_OPD_D_OB1_Cough"
+label variable v54	"MSDQI_OPD_D_OB2_Cough"
+label variable v55	"MSDQI_OPD_D_OB1_Duration of cough (N/A if patient does not have cough) (No if clinician did not ask about cough)"
+label variable v56	"MSDQI_OPD_D_OB2_Duration of cough (N/A if patient does not have cough) (No if clinician did not ask about cough)"
+label variable v57	"MSDQI_OPD_D_OB1_Ear problems"
+label variable v58	"MSDQI_OPD_D_OB2_Ear problems"
+label variable v59	"MSDQI_OPD_D_OB1_Vomiting everything"
+label variable v60	"MSDQI_OPD_D_OB2_Vomiting everything"
+label variable v61	"MSDQI_OPD_D_OB1_Not able to drink or breastfeed"
+label variable v62	"MSDQI_OPD_D_OB2_Not able to drink or breastfeed"
+label variable v63	"MSDQI_OPD_D_OB1_History of convulsions in this illness or convulsing now"
+label variable v64	"MSDQI_OPD_D_OB2_History of convulsions in this illness or convulsing now"
+label variable v65	"MSDQI_OPD_D_OB1_Altered consciousness or coma"
+label variable v66	"MSDQI_OPD_D_OB2_Altered consciousness or coma"
+label variable v67	"MSDQI_OPD_D_OB1_Treatment given prior to arrival at a facility"
+label variable v68	"MSDQI_OPD_D_OB2_Treatment given prior to arrival at a facility"
+label variable v69	"MSDQI_OPD_D_OB1_Weight of the patient"
+label variable v70	"MSDQI_OPD_D_OB2_Weight of the patient"
+label variable v71	"MSDQI_OPD_D_OB1_Height of the patient"
+label variable v72	"MSDQI_OPD_D_OB2_Height of the patient"
+label variable v73	"MSDQI_OPD_D_OB1_Evidence of anaemia (Palmar/conjunctiva/tongue pallor)?"
+label variable v74	"MSDQI_OPD_D_OB2_Evidence of anaemia (Palmar/conjunctiva/tongue pallor)?"
+label variable v75	"MSDQI_OPD_D_OB1_Temperature taken"
+label variable v76	"MSDQI_OPD_D_OB2_Temperature taken"
+label variable v77	"MSDQI_OPD_D_OB1_ENT examination and/or respiratory rate"
+label variable v78	"MSDQI_OPD_D_OB2_ENT examination and/or respiratory rate"
+label variable v79	"MSDQI_OPD_D_OB1_Evidence of altered consciousness or coma. Health service provider measures patient’s alertness, voice, pain and unresponsiveness (AVPU)"
+label variable v80	"MSDQI_OPD_D_OB2_Evidence of altered consciousness or coma. Health service provider measures patient’s alertness, voice, pain and unresponsiveness (AVPU)"
+label variable v81	"MSDQI_OPD_D_OB1_Neck exam (stiffness)"
+label variable v82	"MSDQI_OPD_D_OB2_Neck exam (stiffness)"
+label variable v83	"MSDQI_OPD_D_OB1_Does the health service provider order/conduct a malaria test?"
+label variable v84	"MSDQI_OPD_D_OB2_Does the health service provider order/conduct a malaria test?"
+label variable v85	"MSDQI_OPD_D_OB1_If yes, does the health service provider wait for the test results before the final diagnosis/prescription?"
+label variable v86	"MSDQI_OPD_D_OB2_If yes, does the health service provider wait for the test results before the final diagnosis/prescription?"
+label variable v87	"MSDQI_OPD_D_OB1_If no, was the test not done because of one of the following reasons?"
+label variable v88	"MSDQI_OPD_D_OB2_If no, was the test not done because of one of the following reasons?"
+label variable v89	"MSDQI_OPD_D_OB1_Malaria test results"
+label variable v90	"MSDQI_OPD_D_OB2_Malaria test results"
+label variable v91	"MSDQI_OPD_D_OB1_What was the final diagnosis of the patient?"
+label variable v92	"MSDQI_OPD_D_OB2_What was the final diagnosis of the patient?"
+label variable v93	"MSDQI_OPD_D_OB1_Did the health service provider make correct diagnosis according to National Guidelines for Malaria Diagnosis and Treatment?"
+label variable v94	"MSDQI_OPD_D_OB2_Did the health service provider make correct diagnosis according to National Guidelines for Malaria Diagnosis and Treatment?"
+label variable v95	"MSDQI_OPD_D_OB1_Was the patient diagnosed with malaria?"
+label variable v96	"MSDQI_OPD_D_OB2_Was the patient diagnosed with malaria?"
+label variable v97	"MSDQI_OPD_D_OB1_If yes, was an ACT given?"
+label variable v98	"MSDQI_OPD_D_OB2_If yes, was an ACT given?"
+label variable v99	"MSDQI_OPD_D_OB1_If yes, was ACT dosage prescribed according to body weight or age if applicable?"
+label variable v100	"MSDQI_OPD_D_OB2_If yes, was ACT dosage prescribed according to body weight or age if applicable?"
+label variable v101	"MSDQI_OPD_D_OB1_If yes, was ACT regimen prescribed according to recommended frequency (e.g. for ALu twice per day for three days)?"
+label variable v102	"MSDQI_OPD_D_OB2_If yes, was ACT regimen prescribed according to recommended frequency (e.g. for ALu twice per day for three days)?"
+label variable v103	"MSDQI_OPD_D_OB1_Was the patient diagnosed as NOT having malaria?"
+label variable v104	"MSDQI_OPD_D_OB2_Was the patient diagnosed as NOT having malaria?"
+label variable v105	"MSDQI_OPD_D_OB1_If yes, was an ACT not given?"
+label variable v106	"MSDQI_OPD_D_OB2_If yes, was an ACT not given?"
+label variable v107	"MSDQI_OPD_D_OB1_If yes, was the medication dosage for non-malaria diagnosis prescribed according to body weight or age if applicable?"
+label variable v108	"MSDQI_OPD_D_OB2_If yes, was the medication dosage for non-malaria diagnosis prescribed according to body weight or age if applicable?"
+label variable v109	"MSDQI_OPD_D_OB1_If yes, was the medication regimen for non-malaria diagnosis prescribed according to the recommended frequency (e.g. for Amoxicillin 500 mg TDS for 5 days)?"
+label variable v110	"MSDQI_OPD_D_OB2_If yes, was the medication regimen for non-malaria diagnosis prescribed according to the recommended frequency (e.g. for Amoxicillin 500 mg TDS for 5 days)?"
+label variable v111	"MSDQI_OPD_D_OB1_How to give/take medicines at home?"
+label variable v112	"MSDQI_OPD_D_OB2_How to give/take medicines at home?"
+label variable v113	"MSDQI_OPD_D_OB1_When to return?"
+label variable v114	"MSDQI_OPD_D_OB2_When to return?"
+label variable v115	"MSDQI_OPD_D_OB1_ Use of LLIN?"
+label variable v116	"MSDQI_OPD_D_OB2_ Use of LLIN?"
+label variable v117	"MSDQI_OPD_D_OB1_Checked to confirm understanding of client?"
+label variable v118	"MSDQI_OPD_D_OB2_Checked to confirm understanding of client?"
+label variable v119	"MSDQI_OPD_D_OB1_Asked if client has any questions?"
+label variable v120	"MSDQI_OPD_D_OB2_Asked if client has any questions?"
+label variable v121	"MSDQI_OPD_D_OB3_Weight of the patient"
+label variable v122	"MSDQI_OPD_D_OB4_Weight of the patient"
+label variable v123	"MSDQI_OPD_D_OB3_Temperature taken"
+label variable v124	"MSDQI_OPD_D_OB4_Temperature taken"
+label variable v125	"MSDQI_OPD_D_OB3_Height of the patient"
+label variable v126	"MSDQI_OPD_D_OB4_Height of the patient"
+label variable v127	"MSDQI_OPD_D_OB3_Evidence of anaemia (Palmar/conjunctiva/tongue pallor)?"
+label variable v128	"MSDQI_OPD_D_OB4_Evidence of anaemia (Palmar/conjunctiva/tongue pallor)?"
+label variable v129	"MSDQI_OPD_D_OB3_ENT examination and/or respiratory rate"
+label variable v130	"MSDQI_OPD_D_OB4_ENT examination and/or respiratory rate"
+label variable v131	"OPD_D_OB3_All other system examinations (chest, abdomen, limbs)"
+label variable v132	"OPD_D_OB4_All other system examinations (chest, abdomen, limbs)"
+label variable v133	"OPD_D_OB3_At least one sign of severe disease: respiratory distress, altered consciousness or coma (eye opened, verbal and motor response), neck exam (stiffness)"
+label variable v134	"OPD_D_OB4_At least one sign of severe disease: respiratory distress, altered consciousness or coma (eye opened, verbal and motor response), neck exam (stiffness)"
+label variable v135	"MSDQI_OPD_D_OB3_Does the health service provider order/conduct a malaria test?"
+label variable v136	"MSDQI_OPD_D_OB4_Does the health service provider order/conduct a malaria test?"
+label variable v137	"MSDQI_OPD_D_OB3_If yes, does the health service provider wait for the test results before the final diagnosis/prescription?"
+label variable v138	"MSDQI_OPD_D_OB4_If yes, does the health service provider wait for the test results before the final diagnosis/prescription?"
+label variable v139	"MSDQI_OPD_D_OB3_If no, was the test not done because of one of the following reasons?"
+label variable v140	"MSDQI_OPD_D_OB4_If no, was the test not done because of one of the following reasons?"
+label variable v141	"MSDQI_OPD_D_OB3_Malaria test results"
+label variable v142	"MSDQI_OPD_D_OB4_Malaria test results"
+label variable v143	"MSDQI_OPD_D_OB3_What was the final diagnosis of the patient?"
+label variable v144	"MSDQI_OPD_D_OB4_What was the final diagnosis of the patient?"
+label variable v145	"MSDQI_OPD_D_OB3_Did the health service provider make correct diagnosis according to National Guidelines for Malaria Diagnosis and Treatment?"
+label variable v146	"MSDQI_OPD_D_OB4_Did the health service provider make correct diagnosis according to National Guidelines for Malaria Diagnosis and Treatment?"
+label variable v147	"MSDQI_OPD_D_OB3_Was the patient diagnosed with malaria?"
+label variable v148	"MSDQI_OPD_D_OB4_Was the patient diagnosed with malaria?"
+label variable v149	"MSDQI_OPD_D_OB3_If yes, was an ACT given?"
+label variable v150	"MSDQI_OPD_D_OB4_If yes, was an ACT given?"
+label variable v151	"MSDQI_OPD_D_OB3_If yes, was ACT dosage prescribed according to body weight or age if applicable?"
+label variable v152	"MSDQI_OPD_D_OB4_If yes, was ACT dosage prescribed according to body weight or age if applicable?"
+label variable v153	"MSDQI_OPD_D_OB3_If yes, was ACT regimen prescribed according to recommended frequency (e.g. for ALu twice per day for three days)?"
+label variable v154	"MSDQI_OPD_D_OB4_If yes, was ACT regimen prescribed according to recommended frequency (e.g. for ALu twice per day for three days)?"
+label variable v155	"MSDQI_OPD_D_OB3_Was the patient diagnosed as NOT having malaria?"
+label variable v156	"MSDQI_OPD_D_OB4_Was the patient diagnosed as NOT having malaria?"
+label variable v157	"MSDQI_OPD_D_OB3_If yes, was an ACT not given?"
+label variable v158	"MSDQI_OPD_D_OB4_If yes, was an ACT not given?"
+label variable v159	"MSDQI_OPD_D_OB3_If yes, was the medication dosage for non-malaria diagnosis prescribed according to body weight or age if applicable?"
+label variable v160	"MSDQI_OPD_D_OB4_If yes, was the medication dosage for non-malaria diagnosis prescribed according to body weight or age if applicable?"
+label variable v161	"MSDQI_OPD_D_OB3_If yes, was the medication regimen for non-malaria diagnosis prescribed according to the recommended frequency (e.g. for Amoxicillin 500 mg TDS for 5 days)?"
+label variable v162	"MSDQI_OPD_D_OB4_If yes, was the medication regimen for non-malaria diagnosis prescribed according to the recommended frequency (e.g. for Amoxicillin 500 mg TDS for 5 days)?"
+label variable v163	"MSDQI_OPD_D_OB3_How to give/take medicines at home?"
+label variable v164	"MSDQI_OPD_D_OB4_How to give/take medicines at home?"
+label variable v165	"MSDQI_OPD_D_OB3_When to return?"
+label variable v166	"MSDQI_OPD_D_OB4_When to return?"
+label variable v167	"MSDQI_OPD_D_OB3_ Use of LLIN?"
+label variable v168	"MSDQI_OPD_D_OB4_ Use of LLIN?"
+label variable v169	"MSDQI_OPD_D_OB3_Checked to confirm understanding of client?"
+label variable v170	"MSDQI_OPD_D_OB4_Checked to confirm understanding of client?"
+label variable v171	"MSDQI_OPD_D_OB3_Asked if client has any questions?"
+label variable v172	"MSDQI_OPD_D_OB4_Asked if client has any questions?"
+label variable v173	"MSDQI_OPD_E_Does this facility use Artesunate to treat severe malaria?"
+label variable v174	"MSDQI_OPD_E_Does this facility use Quinine to treat severe malaria?"
+label variable v175	"MSDQI_OPD_E_Does this facility use Artemether to treat severe malaria?"
+label variable v176	"MSDQI_OPD_E_Are there health providers at the facility who have received on-the-job training (e.g. mentorship) for administering artesunate injectable?"
+label variable v177	"MSDQI_OPD_E_Are there health providers at the facility who have received formal training (e.g. seminar) for administering artesunate injectable?"
+label variable v178	"MSDQI_OPD_E_Are job aids for injectable artesunate available? (Verify)"
+label variable v179	"MSDQI_OPD_E_Are there at least 50 syringe packs available at this facility?"
+label variable v180	"MSDQI_OPD_E_What is the most prescribed parenteral antimalarial in the injection register? (see prescription records of last 10 patients)"
+label variable v181	"MSDQI_OPD_E_E.1 Inj. Artesunate: Facility Readiness"
+label variable v182	"MSDQI_OPD_E_Step 1: Gets the contents correctly out of the package (check for the availability of the following three items: sodium bicarbonate ampoule, Artesunate vials and 5% rose/0.9 saline ampoule)"
+label variable v183	"MSDQI_OPD_E_Step 2: Draws 1ml of sodium bicarbonate into the syringe"
+label variable v184	"MSDQI_OPD_E_Step 3: Adds 1ml of sodium bicarbonate into Artesunate vials (60mg)"
+label variable v185	"MSDQI_OPD_E_Step 4: Shakes for 2-3 minutes"
+label variable v186	"MSDQI_OPD_E_Step 5: Waits until completely dissolve and solution is clear"
+label variable v187	"MSDQI_OPD_E_Step 6: Draws into syringe 5% Dextrose/0.9 saline (2ml for IM; 5ml for IV)"
+label variable v188	"MSDQI_OPD_E_Step 7: Adds the contents into Artesunate vial"
+label variable v189	"MSDQI_OPD_E_Step 8: Shakes for 30 seconds"
+label variable v190	"MSDQI_OPD_E_Step 9: Determines the dose (round up to the nearest ml)"
+label variable v191	"MSDQI_OPD_E_Step 10: Draws the required dose into the syringe"
+label variable v192	"MSDQI_OPD_E_Step 12: Discarded all the syringes and needles into safety box immediately after use"
+label variable v193	"MSDQI_OPD_E_Step 13: Records the procedure in the injection register"
+label variable v194	"MSDQI_OPD_E_Step 14: Absence of any diluted Artesunate not used within one hour from reconstitution in the injection area"
+label variable v195	"MSDQI_OPD_SUB-SCORE: E.2 Inj. Artesunate: Observation/Simulation summary"
+label variable v196	"MSDQI_OPD_SCORE: Section E. Severe Malaria Management: Pre-referral treatment"
+label variable v197	"MSDQI_OPD_F_Int1_Did you get all the medicines prescribed for your illness at this facility?"
+label variable v198	"MSDQI_OPD_F_Int2_Did you get all the medicines prescribed for your illness at this facility?"
+label variable v199	"MSDQI_OPD_F_Int1_Supervisor, could the client/caretaker explain use of dispensed drugs at home correctly?"
+label variable v200	"MSDQI_OPD_F_Int2_Supervisor, could the client/caretaker explain use of dispensed drugs at home correctly?"
+label variable v201	"MSDQI_OPD_F_Int1_Supervisor, could the client/caretaker explain when to return to health correctly?"
+label variable v202	"MSDQI_OPD_F_Int2_Supervisor, could the client/caretaker explain when to return to health correctly?"
+label variable v203	"OPD_F_Int1_Are you satisfied with the time you spent to receive services today?"
+label variable v204	"OPD_F_Int2_Are you satisfied with the time you spent to receive services today?"
+label variable v205	"MSDQI_OPD_F_Int1_Are you satisfied with the services provided by the health facility staff?"
+label variable v206	"MSDQI_OPD_F_Int2_Are you satisfied with the services provided by the health facility staff?"
+label variable v207	"MSDQI_OPD_G_OPD report form"
+label variable v208	"MSDQI_OPD_G_Dispensing report form"
+label variable v209	"MSDQI_OPD_G_Malaria testing report form"
+label variable v210	"MSDQI_OPD_G_IDSR report"
+label variable v211	"MSDQI_OPD_G_Does this facility submit reports to CHMT?"
+label variable v212	"MSDQI_OPD_G_was the facility report submitted to CHMT on or before 7th of the subsequent month?"
+label variable v213	"MSDQI_OPD_G_Does this facility submit reports directly to DHIS2?"
+label variable v214	"MSDQI_OPD_G_ was report entered into DHIS2 on or before 15th of the subsequent month?"
+label variable v215	"MSDQI_OPD_G_The responsibility of recording the delivery of service on monthly summary forms for OPD, Dispensing and Laboratory is clearly assigned to relevant staff"
+label variable v216	"MSDQI_OPD_G_There are designated staff at the facility responsible for reviewing aggregated number prior to submission to the council level"
+label variable v217	"MSDQI_OPD_G_All staff involved in recording on monthly summary forms have received training on the data management and tools"
+label variable v218	"MSDQI_OPD_G_The facility has written guidelines (MUONGOZO #1) to the service delivery point on reporting requirements and deadlines"
+label variable v219	"MSDQI_OPD_G_Malaria data used at facility meetings for planning and decision making If yes, Verify by checking minutes of meetings, display of charts on notice boards)"
+
+rename v8 facilityid
+
+save "/Users/levira/Documents/Projects\TMSA\MSDQI\MSDQI\PMI-20.11.22 Indepth Analysis - CSV\Data Elements\OPD_elements",replace
+
+*Import scores
+
+clear
+
+import excel "/Users/levira/Documents/Projects/TMSA/MSDQI/MSDQI/PMI-20.11.22 Indepth Analysis - CSV/Scores/OPD Scores 18.11.22 2.xlsx", sheet("Sheet 1") firstrow clear
+
+
+label variable sopdv1 "Event"	
+label variable sopdv2 "Program stage"
+label variable sopdv3 "Supervision date"	
+label variable sopdv4 "Geometry"	
+label variable sopdv5 "Longitude"	
+label variable sopdv6 "Latitude"	
+label variable sopdv7 "Organisation unit name"	
+label variable sopdv8 "Organisation unit code"	
+label variable sopdv9 "Organisation unit"	
+label variable sopdv11 "MSDQI_OPD_SUB-SCORE: C.1 Staffing Levels % summary"	
+label variable sopdv12 "MSDQI_OPD_SUB-SCORE: C.2 Staff Training Summary"	
+label variable sopdv13 "MSDQI_OPD_SUB-SCORE: C.3 Malaria Reference Materials summary"	
+label variable sopdv14 "MSDQI_OPD_SUB-SCORE: C.4 Essential Equipment summary"	
+label variable sopdv15 "MSDQI_OPD_SUB-SCORE: C.5  IEC/SBCC Materials summary"	
+label variable sopdv16 "MSDQI_OPD_SUB-SCORE: C.6 OPD Information System Tools"	
+label variable sopdv17 "MSDQI_OPD_SUB-SCORE: D.1.1 Clinical History(A)"	
+label variable sopdv18 "MSDQI_OPD_SUB-SCORE: D.1.1 Clinical History(B)"	
+label variable sopdv19 "MSDQI_OPD_SUB-SCORE: D.1.2 Physical Exam (C)"	
+label variable sopdv19 "MSDQI_OPD_SUB-SCORE: D.1.2 Physical Exam (D)"	
+label variable sopdv20 "MSDQI_OPD_SUB-SCORE: D1.3 Malaria Testing (E)"	
+label variable sopdv21 "MSDQI_OPD_SUB-SCORE: D1.3 Malaria Testing (F)"	
+label variable sopdv22 "MSDQI_OPD_SUB-SCORE: D1.4 Diagnosis (G)"	
+label variable sopdv23 "MSDQI_OPD_SUB-SCORE: D1.4 Diagnosis (H)"	
+label variable sopdv24 "MSDQI_OPD_SUB-SCORE: D1.5 Treatment (I)"	
+label variable sopdv25 "MSDQI_OPD_SUB-SCORE: D1.5 Treatment (J)"	
+label variable sopdv26 "MSDQI_OPD_SUB-SCORE: D1.6 Patient Counselling (K)"	
+label variable sopdv27 "MSDQI_OPD_SUB-SCORE: D1.6 Patient Counselling (L)"	
+label variable sopdv28 "MSDQI_OPD_SUB-SCORE: D2.1 Clinical History (A)"	
+label variable sopdv29 "MSDQI_OPD_SUB-SCORE: D2.1 Clinical History (B)"	
+label variable sopdv30 "MSDQI_OPD_SUB-SCORE: D.2.2 Physical Exam (C)"
+label variable sopdv31 "MSDQI_OPD_SUB-SCORE: D.2.2 Physical Exam (D)"	
+label variable sopdv32 "MSDQI_OPD_SUB-SCORE: D.2.3 Malaria Testing (E)"	
+label variable sopdv33 "MSDQI_OPD_SUB-SCORE: D.2.3 Malaria Testing (F)"	
+label variable sopdv34 "MSDQI_OPD_SUB-SCORE: D.2.4 Diagnosis  (G)"	
+label variable sopdv35 "MSDQI_OPD_SUB-SCORE: D.2.4 Diagnosis  (H)"	
+label variable sopdv36 "MSDQI_OPD_SUB-SCORE: D.2.5 Treatment (I)"	
+label variable sopdv37 "MSDQI_OPD_SUB-SCORE: D.2.5 Treatment (J)"	
+label variable sopdv38 "MSDQI_OPD_SUB-SCORE: D.2.6 Patient Counselling (K)"	
+label variable sopdv39 "MSDQI_OPD_SUB-SCORE: D.2.6 Patient Counselling  (L)"	
+label variable sopdv40 "MSDQI_OPD_SUB-SCORE: E.1 Inj. Artesunate: Facility Readiness summary"	
+label variable sopdv41 "MSDQI_OPD_SUB-SCORE: E.2 Inj. Artesunate: Observation/Simulation summary"	
+label variable sopdv42 "MSDQI_OPD_SUB-SCORE: Section F Client Satisfaction(A)"	
+label variable sopdv43 "MSDQI_OPD_SUB-SCORE: Section F Client Satisfaction(B)"	
+label variable sopdv44 "MSDQI_OPD_SCORE: Section F Client Satisfaction"
+label variable sopdv45 "MSDQI_OPD_SUB-SCORE: G.1 OPD-DQA Reporting Performance summary"	
+label variable sopdv46 "MSDQI_OPD_SUB-SCORE: G.2 OPD-DQA Data Readiness summary"	
+label variable sopdv47 "MSDQI_OPD_SUB-SCORE: G3. OPD-DQA Consistency Check summary"	
+label variable sopdv48 "MSDQI OPD: Sample Register Review: Completeness score"
+
+drop in 1/1
+
+rename sopdv1 v1
+
+rename sopdv8 facilityid
+
+save "/Users/levira/Documents/Projects\TMSA\MSDQI\MSDQI\PMI-20.11.22 Indepth Analysis - CSV\Scores\OPD Scores 18.11.22.dta",replace 
+
+*Merge checklist data  with scores
+
+use "/Users/levira/Documents/Projects\TMSA\MSDQI\MSDQI\PMI-20.11.22 Indepth Analysis - CSV\Data Elements\OPD_elements",clear
+
+merge 1:1 v1 using "/Users/levira/Documents/Projects\TMSA\MSDQI\MSDQI\PMI-20.11.22 Indepth Analysis - CSV\Scores\OPD Scores 18.11.22.dta"
+
+
+keep if _m==3
+
+drop _m
+
+gen year=substr(sopdv3,7,4)
+gen month=substr(sopdv3,4,2)
+gen day=substr(sopdv3,1,2)
+
+destring year month day,replace force
+
+gen supervisiondate=mdy(month,day,year)
+
+format supervisiondate %td
+
+bysort facilityid supervisiondate: gen visitno=_n
+
+bysort facilityid supervisiondate: gen visittotal=_N
+
+duplicates report facilityid supervisiondate
+
+duplicates tag facilityid supervisiondate,gen(dup)
+
+sort facilityid supervisiondate visitno dup
+
+order facilityid supervisiondate visitno dup
+
+keep if dup==0 | (dup > 0 & visitno==1)
+
+drop visitno  visittotal dup
+
+gen quarter=1 if month >=1 & month <=3
+replace quarter=2 if month >=4 & month <=6
+replace quarter=3 if month >=7 & month <=9
+replace quarter=4 if month >=10 & month <=12
+
+bysort facilityid  year quarter: gen visitno=_n
+
+bysort facilityid  year quarter: gen visittotal=_N
+
+order v7 facilityid supervisiondate visitno visittotal
+
+duplicates report facilityid year month
+
+duplicates tag facilityid year quarter,gen(dup)
+
+order v7 facilityid supervisiondate year quarter visitno visittotal dup
+
+sort facilityid supervisiondate
+
+keep if visittotal==visitno
+
+drop visitno  visittotal dup
+
+bysort facilityid(supervisiondate): gen visitno=_n
+
+bysort facilityid(supervisiondate): gen visittotal=_N
+
+tab visittotal
+
+
+*Gen year of fist MSDQI visit
+
+bysort facilityid: egen year1msdqi=min(supervisiondate)
+bysort facilityid: egen yearlastmsdqi=max(supervisiondate)
+
+format year1msdqi %td
+
+gen year1=year(year1msdqi)
+gen yearlast=year(yearlastmsdqi)
+
+order v7 facilityid supervisiondate visitno visittotal year1msdqi year1 yearlast
+
+tab year1
+tab yearlast
+
+tab visittotal
+
+tab year
+
+drop if facilityid==""
+
+save msdqi_opdlong,replace
+
+keep v7 facilityid supervisiondate visitno visittotal year1 yearlast
+
+reshape wide supervisiondate,i(facilityid v7) j(visitno)
+
+save msdqi_opdwide,replace
+
+
+**Established exposed facilities
+
+use msdqi_opdlong,clear
+
+keep facilityid supervisiondate visittotal
+
+gen freq=visittotal
+
+gen year=year(supervisiondate)
+
+bysort facilityid year: egen firstinyear=min(supervisiondate)
+
+format firstinyear %td
+
+keep if firstinyear==supervisiondate
+
+drop supervisiondate firstinyear
+
+reshape wide visittotal, i(facilityid) j(year)
+
+gen prepost=0
+
+label define prepost 1 "ALL MSDQI SS before 2020" ///
+             2 "1+ MSDQI SS before and after 2020" ///
+             3 "Only 1 MSDQI SS in 2020" ///
+             4 "Only 1 MSDQI SS in 2021" ///
+             5 "Only 1 MSDQI SS in 2022" ///
+             6 "2+ MSDQI SS in 2020 & 2021" ///
+             7 "3+ MSDQI SS in 2020, 2021 & 2022" ///
+             8 "2+ MSDQI SS in 2021 & 2022" ///
+             9 "2+ MSDQI SS in 2020 & 2022" ///
+			 11 "No MSDQI"
+
+label values prepost prepost
+
+replace prepost=1 if (visittotal2017!=. | visittotal2018!= . | visittotal2019!=.) & (visittotal2020==. & visittotal2021== . & visittotal2022==.) 
+
+tab prepost
+
+replace prepost=2 if prepost==0
+
+tab prepost
+
+replace prepost=3 if visittotal2020!=. & (visittotal2017==. & visittotal2018==. & visittotal2019==. & visittotal2021==. & visittotal2022==.) & prepost==2
+
+tab prepost
+
+replace prepost=4 if visittotal2021!=. & (visittotal2017==. & visittotal2018==. & visittotal2019==. & visittotal2020==. & visittotal2022==.) & prepost==2
+
+tab prepost
+
+replace prepost=5 if visittotal2022!=. & (visittotal2017==. & visittotal2018==. & visittotal2019==. & visittotal2020==. & visittotal2021==.) & prepost==2
+
+
+tab prepost
+
+replace prepost=6 if (visittotal2020!=. & visittotal2021!=.) & (visittotal2017==. & visittotal2018==. & visittotal2019==. & visittotal2022==.) & prepost==2
+
+
+tab prepost 
+
+
+replace prepost=7 if (visittotal2020!=. & visittotal2021!=. & visittotal2022!=.) & (visittotal2017==. & visittotal2018==. & visittotal2019==.) & prepost==2
+
+
+tab prepost 
+
+
+replace prepost=8 if (visittotal2021!=. & visittotal2022!=.) & (visittotal2017==. & visittotal2018==. & visittotal2019==. & visittotal2020==.) & prepost==2
+
+
+tab prepost 
+
+
+replace prepost=9 if (visittotal2020!=. & visittotal2022!=.) & (visittotal2017==. & visittotal2018==. & visittotal2019==. & visittotal2021==.)
+
+
+tab prepost,miss
+
+gen intervention=prepost
+
+label value intervention prepost
+
+tab intervention
+
+drop visittotal2017 visittotal2018 visittotal2019 visittotal2020 visittotal2021 visittotal2022 prepost
+
+save interventionbase,replace
+
+
+
+*Merge OPD and MSDQI & MSDQI coverage
+/*
+
+use facilityregdhs,clear
+
+drop if year=="2023"
+
+tab year
+
+merge m:1 facilityid using interventionbase
+
+drop if _m==2
+
+tab _m
+
+bysort facilityid: gen totalrep=_N
+
+tab year totalrep if _m==1,miss row
+
+drop totalrep
+
+bysort facilityid: gen totalrep=_N
+
+tab totalrep
+
+
+drop visittotal2017 visittotal2018 visittotal2019 visittotal2020 visittotal2021 visittotal2022 prepost
+
+tab intervention
+
+tab intervention,miss
+
+
+gen group1=0 if _m==1 
+replace group1=1 if (_m==3) & (intervention==2 | intervention==3 | intervention==4 | intervention==5 | intervention==6 | intervention==7 | intervention==8 | intervention==9)
+
+tab intervention group1,miss
+
+replace group1=0 if intervention==1
+
+gen group2=0 if _m==1
+replace group2=1 if _m==3 & (intervention==2 | intervention==3 | intervention==4 | intervention==5 | intervention==6 | intervention==7 | intervention==8 | intervention==9) & (freq ==1 | freq ==2)
+
+replace group2=0 if intervention==1
+
+
+gen group3=0 if _m==1
+replace group3=1 if _m==3 & (intervention==2 | intervention==3 | intervention==4 | intervention==5 | intervention==6 | intervention==7 | intervention==8 | intervention==9) & (freq >=3)
+
+replace group3=0 if intervention==1
+
+
+gen group4=0 if _m==1
+replace group4=1 if _m==3 & (intervention==2 | intervention==3 | intervention==4 | intervention==5 | intervention==6 | intervention==7 | intervention==8 | intervention==9) & freq > 4
+
+replace group4=0 if intervention==1
+
+
+tab group1,miss
+
+replace intervention=10 if intervention==.
+
+drop _m
+
+tab1 group1 group2 group3 group4
+
+
+gen Council=District
+
+merge m:1 Council using "/Users/levira/Documents/Projects/TMSA/Technical & Documents/Common datasets/Malaria Stratification Tanzania mainland.dta"
+
+drop _m
+
+
+tab burden2020
+
+duplicates drop facilityid,force
+
+
+tab intervention
+
+drop year facilityname totalrep
+
+save interventinMSDQIbase,replace
+
+use interventinMSDQIbase,clear
+
+tab burden2020 group1,col
+
+keep if group1==0
+
+tab burden2020
+
+tab burden2020
+
+save interventinMSDQIbasecontrol,replace
+
+
+use interventinMSDQIbase,clear
+
+keep if group1==1
+
+append using interventinMSDQIbasecontrol
+
+save interventinMSDQIbasecontrolinter,replace
+
+*/
+
+
+
+*Bring in mortality data
+
+
+use deathdata2017,clear
+append using deathdata2018
+append using deathdata2019
+append using deathdata2020
+append using deathdata2021
+append using deathdata2022
+
+replace u5death=0 if u5death==.
+replace u5malaria=0 if u5malaria==.
+replace malaria=0 if malaria==.
+replace deaths=0 if deaths==.
+replace a14deaths=0 if a14deaths==.
+
+tostring period,replace
+
+gen year=substr(period,1,4)
+gen month=substr(period,5,2)
+
+destring year month,replace
+
+generate facilitytype = regexm(facilityname, "Dispensary")
+replace facilitytype = 1 if regexm(facilityname, "Dispesnasry")==1 & facilitytype==0
+replace facilitytype = 2 if regexm(facilityname, "Health Center")==1 & facilitytype==0
+replace facilitytype = 3 if regexm(facilityname, "District Hospital")==1 & facilitytype==0
+replace facilitytype = 4 if regexm(facilityname, "Referral Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Other Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Hospital at District Level")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "HOSPITAL")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "Clinic")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "clinic")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "Polyclinic")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "Maternity Home")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "MATERNITY HOME")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "Nursing Home")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Health Labs")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Laboratory")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Diagnostic")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Specimen collection point")==1 & facilitytype==0
+
+tab facilitytype
+
+recode facilitytype (1=1 "Dispensary") (2=2 "Health Center") (3/5=3 "Hospital")  (6=4 "Poly/Clinics") (7=5 "Maternity home") (8=6 "Diagnostics/Lab"),gen(facilitytype1)
+
+tab facilitytype1,miss
+
+keep if (facilitytype1==2 | facilitytype1==3)
+
+recode month  (1/3=1 "Q1") (4/6=2 "Q2") (7/9=3 "Q3") (10/12=4 "Q4"),gen(quarter)
+
+collapse (sum) u5death u5malaria malaria deaths a14deaths,by(facilityid year quarter)
+
+sort facilityid year quarter
+
+drop if facilityid==""
+
+bysort year: tab quarter
+
+bysort facilityid: egen anydeath=sum(u5death)
+
+*drop if anydeath==0
+
+drop anydeath
+
+save deaths,replace
+
+
+
+use deaths ,clear
+tostring year,replace
+merge m:1 facilityid year using facilityregdhs
+
+keep if _m==3
+
+egen dstat4 = group(facilityid) // Health facilities merged
+
+summ dstat4
+
+
+egen dstat5 = group(facilityid) if deaths!=0
+
+summ dstat5 // Health facilities merged
+
+egen dstat6 = group(facilityid) if u5death!=0
+
+summ dstat6 // Health facilities merged
+
+
+drop _m
+
+merge m:1 Region District year using districtpopulation
+
+keep if _m==3
+
+drop _merge
+
+merge m:1 Region District using "/Users/levira/Documents\Projects\TMSA\Technical & Documents\Common datasets\Malaria Stratification Tanzania mainland.dta"
+
+keep if _m==3
+
+
+tab burden2020
+
+drop _m
+
+merge m:1 facilityid using interventionbase
+
+drop if _m==2
+
+egen dstat7 = group(facilityid) if _m==3
+
+summ dstat7 // Health facilities merged
+
+
+/*
+label define prepost 1 "ALL MSDQI SS before 2020" ///
+             2 "1+ MSDQI SS before and after 2020" ///
+             3 "Only 1 MSDQI SS in 2020" ///
+             4 "Only 1 MSDQI SS in 2021" ///
+             5 "Only 1 MSDQI SS in 2022" ///
+             6 "2+ MSDQI SS in 2020 & 2021" ///
+             7 "3+ MSDQI SS in 2020, 2021 & 2022" ///
+             8 "2+ MSDQI SS in 2021 & 2022" ///
+             9 "2+ MSDQI SS in 2020 & 2022" ///
+			 11 "No MSDQI"
+*/
+
+
+gen group1=0 if _m==1 
+replace group1=1 if (_m==3) & (intervention==3 | intervention==4 | intervention==5 | intervention==6 | intervention==7 | intervention==8 | intervention==9)
+
+
+set seed 12345
+bysort burden2020: generate rannum = uniform() if intervention==2
+sort burden2020 rannum
+
+tab burden2020 if intervention==2
+
+br burden2020 intervention group1 rannum if intervention==2
+
+replace group1=1 in 1/60 if intervention==2 & burden2020=="Very low"
+replace group1=0 in 61/120 if intervention==2 & burden2020=="Very low"
+
+replace group1=1 in 6193/7393 if intervention==2 & burden2020=="high"
+replace group1=0 in 7394/8592 if intervention==2 & burden2020=="high"
+
+
+replace group1=1 in 13921/14041 if intervention==2 & burden2020=="low"
+replace group1=0 in 14042/14160 if intervention==2 & burden2020=="low"
+
+replace group1=1 in 20425/20965 if intervention==2 & burden2020=="moderate"
+replace group1=0 in 20966/21504 if intervention==2 & burden2020=="moderate"
+
+
+replace group1=0 if intervention==1
+
+
+tab intervention group1,miss
+
+replace intervention=11 if intervention==.
+
+
+gen group2=0 if _m==1
+replace group2=1 if _m==3 & (intervention==2 | intervention==3 | intervention==4 | intervention==5 | intervention==6 | intervention==7 | intervention==8 | intervention==9) & (freq ==1 | freq ==2)
+
+replace group2=0 if intervention==1
+
+
+gen group3=0 if _m==1
+replace group3=1 if _m==3 & (intervention==2 | intervention==3 | intervention==4 | intervention==5 | intervention==6 | intervention==7 | intervention==8 | intervention==9) & (freq >=3)
+
+replace group3=0 if intervention==1
+
+
+gen group4=0 if _m==1
+replace group4=1 if _m==3 & (intervention==2 | intervention==3 | intervention==4 | intervention==5 | intervention==6 | intervention==7 | intervention==8 | intervention==9) & freq > 4
+
+replace group4=0 if intervention==1
+
+
+drop _m
+
+
+tab1 group*
+
+label define group 1 "Intervention" 0 "Control"
+
+label values group1 group
+
+destring year,replace
+
+gen period=0 if year==2017 | year==2018 | year==2019
+replace period=1 if year==2020 | year==2021 | year==2022
+
+
+generate facilitytype = regexm(facilityname, "Dispensary")
+replace facilitytype = 1 if regexm(facilityname, "Dispesnasry")==1 & facilitytype==0
+replace facilitytype = 2 if regexm(facilityname, "Health Center")==1 & facilitytype==0
+replace facilitytype = 3 if regexm(facilityname, "District Hospital")==1 & facilitytype==0
+replace facilitytype = 4 if regexm(facilityname, "Referral Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Other Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Hospital at District Level")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "Hospital")==1 & facilitytype==0
+replace facilitytype = 5 if regexm(facilityname, "HOSPITAL")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "Clinic")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "clinic")==1 & facilitytype==0
+replace facilitytype = 6 if regexm(facilityname, "Polyclinic")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "Maternity Home")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "MATERNITY HOME")==1 & facilitytype==0
+replace facilitytype = 7 if regexm(facilityname, "Nursing Home")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Health Labs")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Laboratory")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Diagnostic")==1 & facilitytype==0
+replace facilitytype = 8 if regexm(facilityname, "Specimen collection point")==1 & facilitytype==0
+
+tab facilitytype
+
+recode facilitytype (1=1 "Dispensary") (2=2 "Health Center") (3/5=3 "Hospital")  (6=4 "Poly/Clinics") (7=5 "Maternity home") (8=6 "Diagnostics/Lab"),gen(facilitytype1)
+
+tab facilitytype1,miss
+
+
+encode burden2020,gen(burden)
+encode Setting,gen(residency)
+
+gen catchment=int(prop*populationu5)
+
+gen propallmalaria=100*malaria/deaths
+gen propu5malaria=100*u5malaria/u5death
+
+gen malmortality=100000*u5malaria/catchment
+gen malmortalityratio=u5malaria/catchment
+
+
+tabstat malmortalityratio,by(period) stat(mean)
+tabstat malmortalityratio,by(residency) stat(mean)
+tabstat malmortalityratio,by(burden) stat(mean)
+
+
+tabstat malmortality,by(period) stat(mean)
+tabstat malmortality,by(residency) stat(mean)
+tabstat malmortality,by(burden) stat(mean)
+
+save finaldatasetdid,replace
+
+*save finaldatasetdidv1,replace
+
+**Facilities statistics
+
+use finaldatasetdidv1,clear
+
+bysort facilityid: gen control=_n
+
+tab control burden if control==1,row
+
+dtable control i.facilitytype1 i.residency i.intervention i.freq  if control==1 & burden==2, by(group1) continuous(control ,statistics(total)) nformat(%1.0f total) export(table0.xls, replace)
+
+
+
+use finaldatasetdid,clear
+
+bysort facilityid: gen control=_n
+
+tab control
+tab burden
+tab burden,nolab
+
+gen mu5malaria=u5malaria
+gen mmalaria=malaria
+
+
+dtable control deaths malaria propallmalaria u5death u5malaria propu5malaria malmortality if burden==2, by(group1) continuous(control deaths malaria u5death u5malaria,statistics(total)) continuous(control,statistics(count)) continuous(propallmalaria propu5malaria malmortality mu5malaria mmalaria,statistics(mean)) nformat(%1.0f total) export(table0.xls, replace)
+
+
+dtable control deaths malaria propallmalaria u5death u5malaria propu5malaria malmortality if period==0 & burden==2, by(group1) continuous(control deaths malaria u5death u5malaria,statistics(total)) continuous(control,statistics(count)) continuous(propallmalaria propu5malaria malmortality mu5malaria mmalaria,statistics(mean)) nformat(%1.0f total) export(table0.xls, replace)
+
+dtable control deaths malaria propallmalaria u5death u5malaria propu5malaria malmortality if period==1 & burden==2, by(group1) continuous(control deaths malaria u5death u5malaria,statistics(total)) continuous(control,statistics(count)) continuous(propallmalaria propu5malaria malmortality mu5malaria mmalaria,statistics(mean)) nformat(%1.0f total) export(table0.xls, replace)
+
+
+
+*use finaldatasetdidv1,clear
+
+use finaldatasetdid,clear
+
+
+
+*Basic poisson model
+
+*High burden
+
+poisson u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2,  exposure(catchment) irr
+
+estat ic
+
+
+*predict yhatpois
+
+
+*High burden
+
+meglm u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2, exposure(catchment) || facilityid:, family(poisson) link(log) irr
+
+estat ic
+
+*predict yhatnegpois
+
+*Multilevel Negative binomial model
+
+*High burden
+
+menbreg u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2, exposure(catchment) || facilityid:, irr
+
+estat ic
+
+*predict yhatmlnegpois
+
+/*
+
+*High burden
+
+gen lnu5deaths=ln(u5death)
+
+zip u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2, inflate(lnu5deaths i.quarter i.residency i.facilitytype1) exposure(catchment) irr
+
+estat ic
+
+zinb u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2, inflate(i.quarter i.residency i.facilitytype1) exposure(catchment) irr
+
+estat ic
+
+*/
+
+
+*predict yhatzip
+
+bysort facilityid (year quarter): gen time=_n
+
+egen ID = group(facilityid)
+
+xtset ID time
+
+
+*High burden
+
+xtpoisson u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2, exposure(catchment) irr
+
+estat ic
+
+
+xtnbreg u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2, re exposure(catchment) irr
+
+estat ic
+
+
+*xtnbreg u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2, fe exposure(catchment) irr
+
+margins group1#period,predict(nu0)
+margins group1#period,predict(iru0)
+
+
+ljklj
+margins group1, dydx(period) at((means) _all ) predict(nu0)
+margins group1, dydx(period) at((means) _all ) predict(iru0)
+
+
+margins r.group1 ,dydx(period) at((means) _all ) predict(nu0)
+margins r.group1 ,dydx(period) at((means) _all ) predict(iru0)
+
+
+
+*Frequency
+
+*use finaldatasetdidv1,clear
+
+use finaldatasetdid,clear
+
+tab intervention group1 if burden==2,miss
+
+tab freq group1 if burden==2,miss
+
+tab intervention freq if group1==1 & burden==2,miss
+tab intervention freq if group1==0 & burden==2,miss
+
+replace freq=0 if (intervention==11 | intervention==1 | intervention==2) & group1==0
+
+tab intervention freq if group1==0 & burden==2,miss
+
+tab freq group1 if burden==2,miss
+
+
+/*
+gen control3plus=group1
+replace control3plus=0 if (freq==1 | freq==2) & group1==1
+
+tab freq control3plus if burden==2,miss
+*/
+
+bysort facilityid: egen totaldeath=sum(death)
+
+*drop if totaldeath==0
+
+*drop if (freq==1 | freq==2) & group1==1
+
+*drop if freq==1 & group1==1
+
+*replace group1=0 if freq==1 & group1==1
+
+
+
+
+tab freq group1 if burden==2,miss
+
+
+xtnbreg u5malaria freq i.residency i.facilitytype1 i.group1##i.period if burden==2, re exposure(catchment) irr
+
+
+estat ic
+
+
+*xtnbreg u5malaria i.quarter i.residency i.facilitytype1 i.group1##i.period if burden==2, fe *exposure(catchment) irr
+
+margins group1#period,predict(nu0)
+margins group1#period,predict(iru0)
+
+margins group1, dydx(period) at((means) _all ) predict(nu0)
+margins group1, dydx(period) at((means) _all ) predict(iru0)
+
+
+margins r.group1 ,dydx(period) at((means) _all ) predict(nu0)
+margins r.group1 ,dydx(period) at((means) _all ) predict(iru0)
+
+
+
+graph twoway (line u5malaria timesince if Group=="Control") (line toe_tapping_R timesince if Group=="PD") (scatter toe_tapping_R timesince if Group=="Control") (scatter toe_tapping_R timesince if Group=="PD"), xtitle("Time since baseline visit (years)") ytitle("Group means for task") legend(label(1 "Control") label(2 "PD"))
+
+
+
+xtline propu5malaria, xline(18) ylabel(20(20)100, labsize(small)) xlabel(0(6)36) ytitle("U5 proportionate mortality (%)",size(small)) xlabel(0 "1/20" 6 "6/20" 12 "12/20" 18 "6/21" 24 "12/21" 30 "6/22" 36 "12/22", labsize(small))
+
+
+
